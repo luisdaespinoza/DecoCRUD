@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agregar Nuevo Decomiso</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            font-family: "Inter", sans-serif;
+        }
+        .item-block {
+            background-color: #f8f9fa; /* Light gray background */
+            border-left: 5px solid #007bff; /* Blue border on the left */
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 5px;
+        }
+        .form-control-sm {
+            height: calc(1.5em + 0.5rem + 2px); /* Adjust height for small inputs */
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+            border-radius: 0.2rem;
+        }
+        .message-container {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 1050; /* Ensure it's above other content */
+        }
+        .alert {
+            box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.15);
+            border-radius: 0.5rem;
+        }
+    </style>
+</head>
+<body class="bg-light">
+<div class="container py-5">
+    <h1 class="mb-4 text-center text-success">➕ Nuevo Decomiso</h1>
+
+    <div class="message-container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
+
+    <form id="decomisoForm" action="/add_decomiso" method="POST" enctype="multipart/form-data" class="bg-white p-4 rounded-3 shadow-sm">
+        <div class="mb-3 row">
+            <label for="fecha_decomiso" class="col-sm-3 col-form-label">Fecha y Hora:</label>
+            <div class="col-sm-9">
+                <input type="datetime-local" class="form-control form-control-sm rounded-md" id="fecha_decomiso" name="fecha_decomiso" value="{{ now }}" required>
+            </div>
+        </div>
+        <div class="mb-3 row">
+            <label for="placa_camion" class="col-sm-3 col-form-label">Placa Camión:</label>
+            <div class="col-sm-9">
+                <input type="text" class="form-control form-control-sm rounded-md" id="placa_camion" name="placa_camion" required>
+            </div>
+        </div>
+        <div class="mb-3 row">
+            <label for="tipo_decomiso" class="col-sm-3 col-form-label">Tipo de Decomiso:</label>
+            <div class="col-sm-9">
+                <select class="form-select form-select-sm rounded-md" id="tipo_decomiso" name="tipo_decomiso" required>
+                    <option value="">Seleccione...</option>
+                    <option value="Tambores">Tambores</option>
+                    <option value="Cajas Producto Terminado">Cajas Producto Terminado</option>
+                    <option value="Materiales">Materiales</option>
+                    <option value="Insumos">Insumos</option>
+                    <option value="Goodpack o Totes">Goodpack o Totes</option>
+                    <option value="5 Galones">5 Galones</option>
+                    <option value="Contramuestra y Estufa">Contramuestra y Estufa</option>
+                </select>
+            </div>
+        </div>
+        <div class="mb-3 row">
+            <label for="descripcion" class="col-sm-3 col-form-label">Descripción:</label>
+            <div class="col-sm-9">
+                <textarea class="form-control form-control-sm rounded-md" id="descripcion" name="descripcion" rows="3" required></textarea>
+            </div>
+        </div>
+        <div class="mb-3 row">
+            <label for="observaciones" class="col-sm-3 col-form-label">Observaciones:</label>
+            <div class="col-sm-9">
+                <textarea class="form-control form-control-sm rounded-md" id="observaciones" name="observaciones" rows="3"></textarea>
+            </div>
+        </div>
+
+        <h5 class="mt-4 mb-3 text-primary">Detalle de Ítems Decomisados</h5>
+        <div id="itemsContainer">
+            </div>
+        <button type="button" class="btn btn-outline-primary btn-sm rounded-md" id="addItemButton"><i class="fas fa-plus-circle"></i> Añadir Ítem</button>
+        
+        <h5 class="mt-4 mb-3 text-primary">Cargar Ítems desde CSV</h5>
+        <div class="input-group mb-3">
+            <input type="file" class="form-control form-control-sm rounded-md" id="csvFile" accept=".csv">
+            <button class="btn btn-outline-success btn-sm rounded-md" type="button" id="uploadCsvButton"><i class="fas fa-upload"></i> Cargar CSV</button>
+        </div>
+
+        <h5 class="mt-4 mb-3 text-primary">Archivos Adjuntos</h5>
+        <div class="mb-3">
+            <label for="archivos" class="form-label">Seleccionar Archivos (Imágenes, PDF, etc.):</label>
+            <input type="file" class="form-control form-control-sm rounded-md" id="archivos" name="archivos" multiple>
+        </div>
+
+        <div class="d-flex justify-content-end mt-4">
+            <a href="/" class="btn btn-secondary me-2 rounded-md"><i class="fas fa-times-circle"></i> Cancelar</a>
+            <button type="submit" class="btn btn-success rounded-md"><i class="fas fa-save"></i> Guardar Decomiso</button>
+        </div>
+    </form>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const itemsContainer = document.getElementById('itemsContainer');
+        const addItemButton = document.getElementById('addItemButton');
+        const uploadCsvButton = document.getElementById('uploadCsvButton');
+        const csvFile = document.getElementById('csvFile');
+        let itemIndex = 0; // To keep track of item block indices
+
+        // Function to display messages (replaces alert)
+        function displayMessage(message, category) {
+            const messageContainer = document.querySelector('.message-container');
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${category} alert-dismissible fade show`;
+            alertDiv.setAttribute('role', 'alert');
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            `;
+            messageContainer.appendChild(alertDiv);
+            // Auto-dismiss after 5 seconds
+            setTimeout(() => {
+                const bsAlert = new bootstrap.Alert(alertDiv);
+                bsAlert.close();
+            }, 5000);
+        }
+
+        // Function to add a new item block
+        function addItemBlock(item = {}) {
+            const newItemBlock = document.createElement('div');
+            newItemBlock.className = 'item-block mb-3 p-3 border rounded-3 shadow-sm';
+            newItemBlock.setAttribute('data-item-index', itemIndex); // Store index for easy access
+            newItemBlock.innerHTML = `
+                <div class="row g-2">
+                    <div class="col-md-2">
+                        <label for="codigo-${itemIndex}" class="form-label small mb-0">Código</label>
+                        <input type="text" class="form-control form-control-sm rounded-md" id="codigo-${itemIndex}" name="codigo[]" value="${item.codigo || ''}" required>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="centro-${itemIndex}" class="form-label small mb-0">Centro</label>
+                        <input type="text" class="form-control form-control-sm rounded-md" id="centro-${itemIndex}" name="centro[]" value="${item.centro || ''}" required>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="almacen-${itemIndex}" class="form-label small mb-0">Almacén</label>
+                        <input type="text" class="form-control form-control-sm rounded-md" id="almacen-${itemIndex}" name="almacen[]" value="${item.almacen || ''}" required>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="lote-${itemIndex}" class="form-label small mb-0">Lote</label>
+                        <input type="text" class="form-control form-control-sm rounded-md" id="lote-${itemIndex}" name="lote[]" value="${item.lote || ''}" required>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="kilos-${itemIndex}" class="form-label small mb-0">Kilos</label>
+                        <input type="number" step="0.01" class="form-control form-control-sm rounded-md" id="kilos-${itemIndex}" name="kilos[]" value="${item.kilos || 0}" required>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="valor-${itemIndex}" class="form-label small mb-0">Valor</label>
+                        <input type="number" step="0.01" class="form-control form-control-sm rounded-md" id="valor-${itemIndex}" name="valor[]" value="${item.valor || 0}" required>
+                    </div>
+                </div>
+                <div class="d-flex justify-content-end mt-3">
+                    <button type="button" class="btn btn-danger btn-sm remove-item-btn rounded-md"><i class="fas fa-trash-alt"></i> Eliminar Ítem</button>
+                </div>
+            `;
+            itemsContainer.appendChild(newItemBlock);
+            itemIndex++; // Increment for the next item
+            setupRemoveButtons();
+        }
+
+        // Function to setup remove buttons
+        function setupRemoveButtons() {
+            document.querySelectorAll('.remove-item-btn').forEach(button => {
+                button.onclick = function() {
+                    if (itemsContainer.children.length > 1) { // Ensure at least one item remains
+                        this.closest('.item-block').remove();
+                    } else {
+                        // If it's the last one, clear fields instead of removing
+                        const inputs = this.closest('.item-block').querySelectorAll('input');
+                        inputs.forEach(input => input.value = '');
+                        displayMessage('Debe haber al menos un ítem. Los campos se han vaciado.', 'warning');
+                    }
+                };
+            });
+        }
+
+        // Add event listener for adding new item blocks
+        addItemButton.addEventListener('click', () => addItemBlock());
+
+        // Handle CSV file upload
+        uploadCsvButton.addEventListener('click', () => {
+            const file = csvFile.files[0];
+            if (!file) {
+                displayMessage('Por favor, seleccione un archivo CSV.', 'warning');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file); // 'file' es el nombre que espera tu backend en request.files['file']
+
+            fetch('/upload_csv', { // CAMBIO CLAVE: se corrigió la URL a /upload_csv
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().catch(() => response.text())
+                        .then(errorContent => {
+                            console.error('Server responded with non-OK status. Content:', errorContent);
+                            throw new Error(`Error del servidor (${response.status}): ${typeof errorContent === 'string' ? errorContent.substring(0, 200) + '...' : JSON.stringify(errorContent)}`);
+                        });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.error) {
+                    console.error('Error del servidor (JSON):', data.error);
+                    displayMessage(`Error al cargar el archivo CSV: ${data.error}`, 'danger');
+                    if (itemsContainer.children.length === 0) {
+                        addItemBlock();
+                    }
+                } else {
+                    // Clear existing item blocks before adding new ones from CSV
+                    itemsContainer.innerHTML = '';
+                    // Reset itemIndex to start from 0 for CSV items
+                    itemIndex = 0; // Will be 0 on first addItemBlock call
+
+                    if (data.items && data.items.length > 0) {
+                        data.items.forEach(item => {
+                            addItemBlock(item);
+                        });
+                        displayMessage('Ítems cargados desde CSV exitosamente!', 'success');
+                    } else {
+                        addItemBlock();
+                        displayMessage('El archivo CSV no contiene ítems válidos o está vacío. Se agregó un bloque de ítem vacío.', 'warning');
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error general al cargar CSV:', error);
+                displayMessage('Error al cargar el archivo CSV: ' + error.message, 'danger');
+                if (itemsContainer.children.length === 0) {
+                    addItemBlock();
+                }
+            });
+        });
+
+        // Initial setup for any existing item blocks (if the page was rendered with pre-filled items)
+        // If no items exist on load, add one empty block
+        if (itemsContainer.children.length === 0) {
+            addItemBlock();
+        } else {
+            setupRemoveButtons(); // Only setup if there are pre-existing items
+        }
+
+        // Set current date and time for the datetime-local input
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = (now.getMonth() + 1).toString().padStart(2, '0');
+        const day = now.getDate().toString().padStart(2, '0');
+        const hours = now.getHours().toString().padStart(2, '0');
+        const minutes = now.getMinutes().toString().padStart(2, '0');
+        document.getElementById('fecha_decomiso').value = `${year}-${month}-${day}T${hours}:${minutes}`;
+
+    });
+</script>
+</body>
+</html>
