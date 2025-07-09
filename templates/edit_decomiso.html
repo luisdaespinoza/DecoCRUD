@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Editar Decomiso</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        .item-block {
+            background-color: #f8f9fa; /* Light gray background */
+            border-left: 5px solid #007bff; /* Blue border on the left */
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 5px;
+        }
+        .form-control-sm {
+            height: calc(1.5em + 0.5rem + 2px); /* Adjust height for small inputs */
+            padding: 0.25rem 0.5rem;
+            font-size: 0.875rem;
+            border-radius: 0.2rem;
+        }
+        .file-list-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        .file-list-item .form-check {
+            margin-left: 15px; /* Spacing for checkbox */
+        }
+        /* ********************************************** */
+        /* Estilos para los mensajes flash */
+        .message-container {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 1050; /* Asegura que esté por encima de otros elementos */
+            width: 300px; /* Ancho fijo para los mensajes */
+        }
+        .message-container .alert {
+            padding: 0.75rem 1.25rem; /* Ajusta el padding para que no sea muy grande */
+            margin-bottom: 0.5rem; /* Espacio entre mensajes si hay varios */
+            font-size: 0.9rem; /* Tamaño de fuente para los mensajes */
+            opacity: 0.95; /* Ligera transparencia */
+        }
+        /* ********************************************** */
+    </style>
+</head>
+<body>
+    <div class="message-container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="/">Gestor de Decomisos</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav me-auto">
+                <li class="nav-item">
+                    <a class="nav-link" href="/"><i class="fas fa-home"></i> Inicio</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/add_decomiso"><i class="fas fa-plus-circle"></i> Nuevo Decomiso</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="/analysis"><i class="fas fa-chart-bar"></i> Análisis</a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<div class="container">
+    <h1 class="mb-4 text-center">Editar Decomiso #{{ decomiso.id }}</h1>
+    <form action="/edit_decomiso/{{ decomiso.id }}" method="POST" enctype="multipart/form-data">
+        <div class="mb-3">
+            <label for="fecha_decomiso" class="form-label">Fecha y Hora de Decomiso:</label>
+            <input type="datetime-local" class="form-control form-control-sm" id="fecha_decomiso" name="fecha_decomiso" value="{{ decomiso.fecha_decomiso.strftime('%Y-%m-%dT%H:%M') if decomiso.fecha_decomiso else '' }}" required>
+        </div>
+        <div class="mb-3">
+            <label for="placa_camion" class="form-label">Placa de Camión:</label>
+            <input type="text" class="form-control form-control-sm" id="placa_camion" name="placa_camion" value="{{ decomiso.placa_camion }}" required>
+        </div>
+        <div class="mb-3">
+            <label for="tipo_decomiso" class="form-label">Tipo de Decomiso:</label>
+            <select class="form-select form-select-sm" id="tipo_decomiso" name="tipo_decomiso" required>
+                <option value="Materiales" {% if decomiso.tipo_decomiso == 'Materiales' %}selected{% endif %}>Materiales</option>
+                <option value="Tambores" {% if decomiso.tipo_decomiso == 'Tambores' %}selected{% endif %}>Tambores</option>
+                <option value="Cajas Producto Terminado" {% if decomiso.tipo_decomiso == 'Cajas Producto Terminado' %}selected{% endif %}>Cajas Producto Terminado</option>
+                <option value="Insumos" {% if decomiso.tipo_decomiso == 'Insumos' %}selected{% endif %}>Insumos</option>
+                <option value="Goodpack o Totes" {% if decomiso.tipo_decomiso == 'Goodpack o Totes' %}selected{% endif %}>Goodpack o Totes</option>
+                <option value="5 Galones" {% if decomiso.tipo_decomiso == '5 Galones' %}selected{% endif %}>5 Galones</option>
+                <option value="Contramuestra y Estufa" {% if decomiso.tipo_decomiso == 'Contramuestra y Estufa' %}selected{% endif %}>Contramuestra y Estufa</option>
+            </select>
+        </div>
+        <div class="mb-3">
+            <label for="descripcion" class="form-label">Descripción:</label>
+            <textarea class="form-control form-control-sm" id="descripcion" name="descripcion" rows="3" required>{{ decomiso.descripcion }}</textarea>
+        </div>
+        <div class="mb-3">
+            <label for="observaciones" class="form-label">Observaciones (Opcional):</label>
+            <textarea class="form-control form-control-sm" id="observaciones" name="observaciones" rows="3">{{ decomiso.observaciones }}</textarea>
+        </div>
+
+        <h4 class="mt-4">Ítems Decomisados</h4>
+        <div id="items-container">
+            {% if decomiso.items %}
+                {% for item in decomiso['items'] %}
+                <div class="item-block">
+                    <div class="row g-2">
+                        <div class="col-md-2">
+                            <label for="codigo_{{ loop.index0 }}" class="form-label">Código:</label>
+                            <input type="text" class="form-control form-control-sm" id="codigo_{{ loop.index0 }}" name="codigo[]" value="{{ item.codigo }}">
+                        </div>
+                        <div class="col-md-2">
+                            <label for="centro_{{ loop.index0 }}" class="form-label">Centro:</label>
+                            <input type="text" class="form-control form-control-sm" id="centro_{{ loop.index0 }}" name="centro[]" value="{{ item.centro }}">
+                        </div>
+                        <div class="col-md-2">
+                            <label for="almacen_{{ loop.index0 }}" class="form-label">Almacén:</label>
+                            <input type="text" class="form-control form-control-sm" id="almacen_{{ loop.index0 }}" name="almacen[]" value="{{ item.almacen }}">
+                        </div>
+                        <div class="col-md-2">
+                            <label for="lote_{{ loop.index0 }}" class="form-label">Lote:</label>
+                            <input type="text" class="form-control form-control-sm" id="lote_{{ loop.index0 }}" name="lote[]" value="{{ item.lote }}">
+                        </div>
+                        <div class="col-md-2">
+                            <label for="kilos_{{ loop.index0 }}" class="form-label">Kilos (kg):</label>
+                            <input type="number" step="0.01" class="form-control form-control-sm" id="kilos_{{ loop.index0 }}" name="kilos[]" value="{{ item.kilos }}">
+                        </div>
+                        <div class="col-md-2">
+                            <label for="valor_{{ loop.index0 }}" class="form-label">Valor ($):</label>
+                            <input type="number" step="0.01" class="form-control form-control-sm" id="valor_{{ loop.index0 }}" name="valor[]" value="{{ item.valor }}">
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-end mt-3">
+                        <button type="button" class="btn btn-danger btn-sm remove-item-btn"><i class="fas fa-trash-alt"></i> Eliminar Ítem</button>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                 <div class="item-block">
+                    <div class="row g-2">
+                        <div class="col-md-2">
+                            <label for="codigo_0" class="form-label">Código:</label>
+                            <input type="text" class="form-control form-control-sm" id="codigo_0" name="codigo[]">
+                        </div>
+                        <div class="col-md-2">
+                            <label for="centro_0" class="form-label">Centro:</label>
+                            <input type="text" class="form-control form-control-sm" id="centro_0" name="centro[]">
+                        </div>
+                        <div class="col-md-2">
+                            <label for="almacen_0" class="form-label">Almacén:</label>
+                            <input type="text" class="form-control form-control-sm" id="almacen_0" name="almacen[]">
+                        </div>
+                        <div class="col-md-2">
+                            <label for="lote_0" class="form-label">Lote:</label>
+                            <input type="text" class="form-control form-control-sm" id="lote_0" name="lote[]">
+                        </div>
+                        <div class="col-md-2">
+                            <label for="kilos_0" class="form-label">Kilos (kg):</label>
+                            <input type="number" step="0.01" class="form-control form-control-sm" id="kilos_0" name="kilos[]">
+                        </div>
+                        <div class="col-md-2">
+                            <label for="valor_0" class="form-label">Valor ($):</label>
+                            <input type="number" step="0.01" class="form-control form-control-sm" id="valor_0" name="valor[]">
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-end mt-3">
+                        <button type="button" class="btn btn-danger btn-sm remove-item-btn"><i class="fas fa-trash-alt"></i> Eliminar Ítem</button>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+        <button type="button" id="add-item-btn" class="btn btn-secondary btn-sm mt-3"><i class="fas fa-plus"></i> Agregar Ítem</button>
+
+        <h4 class="mt-4">Archivos Adjuntos Existentes</h4>
+        <div id="existing-attachments-container">
+            {% if decomiso.archivos_adjuntos %}
+                <div class="row g-2">
+                    {% for archivo in decomiso.archivos_adjuntos %}
+                        <div class="col-md-4 file-list-item">
+                            <i class="fas fa-file me-2"></i>
+                            <a href="{{ url_for('uploaded_file', filename=archivo) }}" target="_blank">{{ archivo }}</a>
+                            <div class="form-check ms-auto">
+                                <input class="form-check-input" type="checkbox" name="existing_attachments" value="{{ archivo }}" id="checkbox_{{ loop.index0 }}" checked>
+                                <label class="form-check-label" for="checkbox_{{ loop.index0 }}">Mantener</label>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="text-muted">No hay archivos adjuntos existentes para este decomiso.</p>
+            {% endif %}
+        </div>
+
+        <h4 class="mt-4">Añadir Nuevos Archivos Adjuntos</h4>
+        <div class="mb-3">
+            <label for="new_archivos_adjuntos" class="form-label">Seleccionar Archivos:</label>
+            <input class="form-control form-control-sm" type="file" id="new_archivos_adjuntos" name="new_archivos_adjuntos" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif">
+            <div class="form-text">Puedes subir múltiples archivos (PDF, Word, imágenes). Máximo 16MB por archivo.</div>
+        </div>
+        
+        <div class="d-flex justify-content-end mt-4 mb-5">
+            <button type="submit" class="btn btn-success btn-lg"><i class="fas fa-save"></i> Guardar Cambios</button>
+        </div>
+    </form>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const itemsContainer = document.getElementById('items-container');
+        const addItemButton = document.getElementById('add-item-btn');
+        let itemIndex = itemsContainer.children.length; // Start index from existing items
+
+        function addItemBlock() {
+            const newItemBlock = document.createElement('div');
+            newItemBlock.classList.add('item-block');
+            newItemBlock.innerHTML = `
+                <div class="row g-2">
+                    <div class="col-md-2">
+                        <label for="codigo_${itemIndex}" class="form-label">Código:</label>
+                        <input type="text" class="form-control form-control-sm" id="codigo_${itemIndex}" name="codigo[]">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="centro_${itemIndex}" class="form-label">Centro:</label>
+                        <input type="text" class="form-control form-control-sm" id="centro_${itemIndex}" name="centro[]">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="almacen_${itemIndex}" class="form-label">Almacén:</label>
+                        <input type="text" class="form-control form-control-sm" id="almacen_${itemIndex}" name="almacen[]">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="lote_${itemIndex}" class="form-label">Lote:</label>
+                        <input type="text" class="form-control form-control-sm" id="lote_${itemIndex}" name="lote[]">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="kilos_${itemIndex}" class="form-label">Kilos (kg):</label>
+                        <input type="number" step="0.01" class="form-control form-control-sm" id="kilos_${itemIndex}" name="kilos[]">
+                    </div>
+                    <div class="col-md-2">
+                        <label for="valor_${itemIndex}" class="form-label">Valor ($):</label>
+                        <input type="number" step="0.01" class="form-control form-control-sm" id="valor_${itemIndex}" name="valor[]">
+                    </div>
+                </div>
+                <div class="d-flex justify-content-end mt-3">
+                    <button type="button" class="btn btn-danger btn-sm remove-item-btn"><i class="fas fa-trash-alt"></i> Eliminar Ítem</button>
+                </div>
+            `;
+            itemsContainer.appendChild(newItemBlock);
+            itemIndex++;
+            setupRemoveButtons();
+        }
+
+        function setupRemoveButtons() {
+            document.querySelectorAll('.remove-item-btn').forEach(button => {
+                button.onclick = function() {
+                    if (itemsContainer.children.length > 1) { // Ensure at least one item remains
+                        this.closest('.item-block').remove();
+                    } else {
+                        // If it's the last one, clear fields instead of removing
+                        const inputs = this.closest('.item-block').querySelectorAll('input');
+                        inputs.forEach(input => input.value = '');
+                        // Optional: Add a visual cue or message
+                        // flashMessage('Debe haber al menos un ítem. Los campos se han vaciado.', 'warning');
+                    }
+                };
+            });
+        }
+
+        addItemButton.addEventListener('click', () => addItemBlock());
+
+        // Initial setup for any existing item blocks on page load
+        setupRemoveButtons();
+    });
+</script>
+</body>
+</html>
